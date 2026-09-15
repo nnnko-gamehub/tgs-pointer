@@ -871,11 +871,12 @@ h1,h2,h3{text-wrap:balance;}
 
 /* ====================== modals ====================== */
 .modal-overlay{
-  position:fixed;inset:0;background:rgba(10,12,9,.44);z-index:60;
+  position:fixed;inset:0;background:rgba(10,12,9,.72);z-index:60;
   display:flex;align-items:flex-end;justify-content:center;
 }
 @media (min-width:640px){ .modal-overlay{align-items:center;} }
 .modal-overlay.hidden{display:none;}
+.hidden{display:none !important;}
 .modal-sheet{
   background:var(--surface);width:100%;max-width:460px;max-height:88vh;overflow-y:auto;
   border-radius:var(--radius-lg) var(--radius-lg) 0 0;
@@ -1263,13 +1264,24 @@ function showToast(msg, ms){
   t._timer = setTimeout(function(){ t.classList.add("hidden"); }, ms||2200);
 }
 
-function openModal(id){ $(id).classList.remove("hidden"); }
-function closeModal(id){ $(id).classList.add("hidden"); }
+function openModal(id){
+  $(id).classList.remove("hidden");
+  // Leaflet's transform-based layers can ignore the overlay's z-index on some
+  // browsers (GPU compositing quirk), letting the map paint over the modal.
+  // Hiding the map outright while any modal is open sidesteps that reliably.
+  document.querySelectorAll(".leaflet-map").forEach(function(el){ el.style.visibility = "hidden"; });
+}
+function closeModal(id){
+  $(id).classList.add("hidden");
+  if(!document.querySelector(".modal-overlay:not(.hidden)")){
+    document.querySelectorAll(".leaflet-map").forEach(function(el){ el.style.visibility = ""; });
+  }
+}
 document.addEventListener("click", function(e){
   var closeAttr = e.target.getAttribute && e.target.getAttribute("data-close");
   if(closeAttr){ closeModal(closeAttr); }
-  if(e.target.classList && e.target.classList.contains("modal-overlay")){
-    e.target.classList.add("hidden");
+  if(e.target.classList && e.target.classList.contains("modal-overlay") && e.target.id){
+    closeModal(e.target.id);
   }
 });
 
