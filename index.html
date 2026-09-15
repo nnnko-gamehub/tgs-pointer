@@ -1,0 +1,1975 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#dd4128">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="TGS会場内ナビ：チームでピンを共有し、現在地から目的地までの距離・方角を案内します。">
+<title>会場内ナビ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=Big+Shoulders+Display:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ====================== design tokens ====================== */
+:root{
+  --bg:#f2f4ef;
+  --surface:#ffffff;
+  --surface-2:#eaece4;
+  --surface-3:#dde1d5;
+  --text:#171a15;
+  --text-muted:#5c6459;
+  --border:#d4d8cb;
+  --accent:#dd4128;
+  --accent-ink:#fff8f5;
+  --accent-soft:#fbe4dd;
+  --self:#2f6fe0;
+  --self-soft:#dbe7fb;
+  --good:#1f8a4c;
+  --good-bg:#e1f3e6;
+  --warn:#a86a06;
+  --warn-bg:#faedd4;
+  --danger:#c62f2f;
+  --shadow:0 10px 34px rgba(23,26,21,.16);
+  --shadow-sm:0 3px 10px rgba(23,26,21,.14);
+  --radius-lg:22px;
+  --radius-md:14px;
+  --radius-sm:9px;
+  --font-ui:'Zen Kaku Gothic New','Hiragino Sans','Yu Gothic',Meiryo,sans-serif;
+  --font-hud:'Big Shoulders Display','Zen Kaku Gothic New',sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#14171a; --surface:#1d2124; --surface-2:#252a2d; --surface-3:#2d3236;
+    --text:#eef0eb; --text-muted:#9aa298; --border:#343a3d;
+    --accent:#ff6142; --accent-ink:#1a0d09; --accent-soft:#3a2019;
+    --self:#6fa1ff; --self-soft:#132540;
+    --good:#3fcf7f; --good-bg:#132a1c; --warn:#ffc35c; --warn-bg:#332711; --danger:#ff7a7a;
+    --shadow:0 10px 34px rgba(0,0,0,.5); --shadow-sm:0 3px 10px rgba(0,0,0,.4);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#14171a; --surface:#1d2124; --surface-2:#252a2d; --surface-3:#2d3236;
+  --text:#eef0eb; --text-muted:#9aa298; --border:#343a3d;
+  --accent:#ff6142; --accent-ink:#1a0d09; --accent-soft:#3a2019;
+  --self:#6fa1ff; --self-soft:#132540;
+  --good:#3fcf7f; --good-bg:#132a1c; --warn:#ffc35c; --warn-bg:#332711; --danger:#ff7a7a;
+  --shadow:0 10px 34px rgba(0,0,0,.5); --shadow-sm:0 3px 10px rgba(0,0,0,.4);
+  color-scheme:dark;
+}
+
+/* ====================== leaflet (vendored) ====================== */
+/* required styles */
+
+.leaflet-pane,
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-tile-container,
+.leaflet-pane > svg,
+.leaflet-pane > canvas,
+.leaflet-zoom-box,
+.leaflet-image-layer,
+.leaflet-layer {
+	position: absolute;
+	left: 0;
+	top: 0;
+	}
+.leaflet-container {
+	overflow: hidden;
+	}
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	-webkit-user-select: none;
+	   -moz-user-select: none;
+	        user-select: none;
+	  -webkit-user-drag: none;
+	}
+/* Prevents IE11 from highlighting tiles in blue */
+.leaflet-tile::selection {
+	background: transparent;
+}
+/* Safari renders non-retina tile on retina better with this, but Chrome is worse */
+.leaflet-safari .leaflet-tile {
+	image-rendering: -webkit-optimize-contrast;
+	}
+/* hack that prevents hw layers "stretching" when loading new tiles */
+.leaflet-safari .leaflet-tile-container {
+	width: 1600px;
+	height: 1600px;
+	-webkit-transform-origin: 0 0;
+	}
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	display: block;
+	}
+/* .leaflet-container svg: reset svg max-width decleration shipped in Joomla! (joomla.org) 3.x */
+/* .leaflet-container img: map is broken in FF if you have max-width: 100% on tiles */
+.leaflet-container .leaflet-overlay-pane svg {
+	max-width: none !important;
+	max-height: none !important;
+	}
+.leaflet-container .leaflet-marker-pane img,
+.leaflet-container .leaflet-shadow-pane img,
+.leaflet-container .leaflet-tile-pane img,
+.leaflet-container img.leaflet-image-layer,
+.leaflet-container .leaflet-tile {
+	max-width: none !important;
+	max-height: none !important;
+	width: auto;
+	padding: 0;
+	}
+
+.leaflet-container img.leaflet-tile {
+	/* See: https://bugs.chromium.org/p/chromium/issues/detail?id=600120 */
+	mix-blend-mode: plus-lighter;
+}
+
+.leaflet-container.leaflet-touch-zoom {
+	-ms-touch-action: pan-x pan-y;
+	touch-action: pan-x pan-y;
+	}
+.leaflet-container.leaflet-touch-drag {
+	-ms-touch-action: pinch-zoom;
+	/* Fallback for FF which doesn't support pinch-zoom */
+	touch-action: none;
+	touch-action: pinch-zoom;
+}
+.leaflet-container.leaflet-touch-drag.leaflet-touch-zoom {
+	-ms-touch-action: none;
+	touch-action: none;
+}
+.leaflet-container {
+	-webkit-tap-highlight-color: transparent;
+}
+.leaflet-container a {
+	-webkit-tap-highlight-color: rgba(51, 181, 229, 0.4);
+}
+.leaflet-tile {
+	filter: inherit;
+	visibility: hidden;
+	}
+.leaflet-tile-loaded {
+	visibility: inherit;
+	}
+.leaflet-zoom-box {
+	width: 0;
+	height: 0;
+	-moz-box-sizing: border-box;
+	     box-sizing: border-box;
+	z-index: 800;
+	}
+/* workaround for https://bugzilla.mozilla.org/show_bug.cgi?id=888319 */
+.leaflet-overlay-pane svg {
+	-moz-user-select: none;
+	}
+
+.leaflet-pane         { z-index: 400; }
+
+.leaflet-tile-pane    { z-index: 200; }
+.leaflet-overlay-pane { z-index: 400; }
+.leaflet-shadow-pane  { z-index: 500; }
+.leaflet-marker-pane  { z-index: 600; }
+.leaflet-tooltip-pane   { z-index: 650; }
+.leaflet-popup-pane   { z-index: 700; }
+
+.leaflet-map-pane canvas { z-index: 100; }
+.leaflet-map-pane svg    { z-index: 200; }
+
+.leaflet-vml-shape {
+	width: 1px;
+	height: 1px;
+	}
+.lvml {
+	behavior: url(#default#VML);
+	display: inline-block;
+	position: absolute;
+	}
+
+
+/* control positioning */
+
+.leaflet-control {
+	position: relative;
+	z-index: 800;
+	pointer-events: visiblePainted; /* IE 9-10 doesn't have auto */
+	pointer-events: auto;
+	}
+.leaflet-top,
+.leaflet-bottom {
+	position: absolute;
+	z-index: 1000;
+	pointer-events: none;
+	}
+.leaflet-top {
+	top: 0;
+	}
+.leaflet-right {
+	right: 0;
+	}
+.leaflet-bottom {
+	bottom: 0;
+	}
+.leaflet-left {
+	left: 0;
+	}
+.leaflet-control {
+	float: left;
+	clear: both;
+	}
+.leaflet-right .leaflet-control {
+	float: right;
+	}
+.leaflet-top .leaflet-control {
+	margin-top: 10px;
+	}
+.leaflet-bottom .leaflet-control {
+	margin-bottom: 10px;
+	}
+.leaflet-left .leaflet-control {
+	margin-left: 10px;
+	}
+.leaflet-right .leaflet-control {
+	margin-right: 10px;
+	}
+
+
+/* zoom and fade animations */
+
+.leaflet-fade-anim .leaflet-popup {
+	opacity: 0;
+	-webkit-transition: opacity 0.2s linear;
+	   -moz-transition: opacity 0.2s linear;
+	        transition: opacity 0.2s linear;
+	}
+.leaflet-fade-anim .leaflet-map-pane .leaflet-popup {
+	opacity: 1;
+	}
+.leaflet-zoom-animated {
+	-webkit-transform-origin: 0 0;
+	    -ms-transform-origin: 0 0;
+	        transform-origin: 0 0;
+	}
+svg.leaflet-zoom-animated {
+	will-change: transform;
+}
+
+.leaflet-zoom-anim .leaflet-zoom-animated {
+	-webkit-transition: -webkit-transform 0.25s cubic-bezier(0,0,0.25,1);
+	   -moz-transition:    -moz-transform 0.25s cubic-bezier(0,0,0.25,1);
+	        transition:         transform 0.25s cubic-bezier(0,0,0.25,1);
+	}
+.leaflet-zoom-anim .leaflet-tile,
+.leaflet-pan-anim .leaflet-tile {
+	-webkit-transition: none;
+	   -moz-transition: none;
+	        transition: none;
+	}
+
+.leaflet-zoom-anim .leaflet-zoom-hide {
+	visibility: hidden;
+	}
+
+
+/* cursors */
+
+.leaflet-interactive {
+	cursor: pointer;
+	}
+.leaflet-grab {
+	cursor: -webkit-grab;
+	cursor:    -moz-grab;
+	cursor:         grab;
+	}
+.leaflet-crosshair,
+.leaflet-crosshair .leaflet-interactive {
+	cursor: crosshair;
+	}
+.leaflet-popup-pane,
+.leaflet-control {
+	cursor: auto;
+	}
+.leaflet-dragging .leaflet-grab,
+.leaflet-dragging .leaflet-grab .leaflet-interactive,
+.leaflet-dragging .leaflet-marker-draggable {
+	cursor: move;
+	cursor: -webkit-grabbing;
+	cursor:    -moz-grabbing;
+	cursor:         grabbing;
+	}
+
+/* marker & overlays interactivity */
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-image-layer,
+.leaflet-pane > svg path,
+.leaflet-tile-container {
+	pointer-events: none;
+	}
+
+.leaflet-marker-icon.leaflet-interactive,
+.leaflet-image-layer.leaflet-interactive,
+.leaflet-pane > svg path.leaflet-interactive,
+svg.leaflet-image-layer.leaflet-interactive path {
+	pointer-events: visiblePainted; /* IE 9-10 doesn't have auto */
+	pointer-events: auto;
+	}
+
+/* visual tweaks */
+
+.leaflet-container {
+	background: #ddd;
+	outline-offset: 1px;
+	}
+.leaflet-container a {
+	color: #0078A8;
+	}
+.leaflet-zoom-box {
+	border: 2px dotted #38f;
+	background: rgba(255,255,255,0.5);
+	}
+
+
+/* general typography */
+.leaflet-container {
+	font-family: "Helvetica Neue", Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	font-size: 0.75rem;
+	line-height: 1.5;
+	}
+
+
+/* general toolbar styles */
+
+.leaflet-bar {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.65);
+	border-radius: 4px;
+	}
+.leaflet-bar a {
+	background-color: #fff;
+	border-bottom: 1px solid #ccc;
+	width: 26px;
+	height: 26px;
+	line-height: 26px;
+	display: block;
+	text-align: center;
+	text-decoration: none;
+	color: black;
+	}
+.leaflet-bar a,
+.leaflet-control-layers-toggle {
+	background-position: 50% 50%;
+	background-repeat: no-repeat;
+	display: block;
+	}
+.leaflet-bar a:hover,
+.leaflet-bar a:focus {
+	background-color: #f4f4f4;
+	}
+.leaflet-bar a:first-child {
+	border-top-left-radius: 4px;
+	border-top-right-radius: 4px;
+	}
+.leaflet-bar a:last-child {
+	border-bottom-left-radius: 4px;
+	border-bottom-right-radius: 4px;
+	border-bottom: none;
+	}
+.leaflet-bar a.leaflet-disabled {
+	cursor: default;
+	background-color: #f4f4f4;
+	color: #bbb;
+	}
+
+.leaflet-touch .leaflet-bar a {
+	width: 30px;
+	height: 30px;
+	line-height: 30px;
+	}
+.leaflet-touch .leaflet-bar a:first-child {
+	border-top-left-radius: 2px;
+	border-top-right-radius: 2px;
+	}
+.leaflet-touch .leaflet-bar a:last-child {
+	border-bottom-left-radius: 2px;
+	border-bottom-right-radius: 2px;
+	}
+
+/* zoom control */
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+	font: bold 18px 'Lucida Console', Monaco, monospace;
+	text-indent: 1px;
+	}
+
+.leaflet-touch .leaflet-control-zoom-in, .leaflet-touch .leaflet-control-zoom-out  {
+	font-size: 22px;
+	}
+
+
+/* layers control */
+
+.leaflet-control-layers {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+	background: #fff;
+	border-radius: 5px;
+	}
+.leaflet-control-layers-toggle {
+	background-image: url(images/layers.png);
+	width: 36px;
+	height: 36px;
+	}
+.leaflet-retina .leaflet-control-layers-toggle {
+	background-image: url(images/layers-2x.png);
+	background-size: 26px 26px;
+	}
+.leaflet-touch .leaflet-control-layers-toggle {
+	width: 44px;
+	height: 44px;
+	}
+.leaflet-control-layers .leaflet-control-layers-list,
+.leaflet-control-layers-expanded .leaflet-control-layers-toggle {
+	display: none;
+	}
+.leaflet-control-layers-expanded .leaflet-control-layers-list {
+	display: block;
+	position: relative;
+	}
+.leaflet-control-layers-expanded {
+	padding: 6px 10px 6px 6px;
+	color: #333;
+	background: #fff;
+	}
+.leaflet-control-layers-scrollbar {
+	overflow-y: scroll;
+	overflow-x: hidden;
+	padding-right: 5px;
+	}
+.leaflet-control-layers-selector {
+	margin-top: 2px;
+	position: relative;
+	top: 1px;
+	}
+.leaflet-control-layers label {
+	display: block;
+	font-size: 13px;
+	font-size: 1.08333em;
+	}
+.leaflet-control-layers-separator {
+	height: 0;
+	border-top: 1px solid #ddd;
+	margin: 5px -10px 5px -6px;
+	}
+
+/* Default icon URLs */
+.leaflet-default-icon-path { /* used only in path-guessing heuristic, see L.Icon.Default */
+	background-image: url(images/marker-icon.png);
+	}
+
+
+/* attribution and scale controls */
+
+.leaflet-container .leaflet-control-attribution {
+	background: #fff;
+	background: rgba(255, 255, 255, 0.8);
+	margin: 0;
+	}
+.leaflet-control-attribution,
+.leaflet-control-scale-line {
+	padding: 0 5px;
+	color: #333;
+	line-height: 1.4;
+	}
+.leaflet-control-attribution a {
+	text-decoration: none;
+	}
+.leaflet-control-attribution a:hover,
+.leaflet-control-attribution a:focus {
+	text-decoration: underline;
+	}
+.leaflet-attribution-flag {
+	display: inline !important;
+	vertical-align: baseline !important;
+	width: 1em;
+	height: 0.6669em;
+	}
+.leaflet-left .leaflet-control-scale {
+	margin-left: 5px;
+	}
+.leaflet-bottom .leaflet-control-scale {
+	margin-bottom: 5px;
+	}
+.leaflet-control-scale-line {
+	border: 2px solid #777;
+	border-top: none;
+	line-height: 1.1;
+	padding: 2px 5px 1px;
+	white-space: nowrap;
+	-moz-box-sizing: border-box;
+	     box-sizing: border-box;
+	background: rgba(255, 255, 255, 0.8);
+	text-shadow: 1px 1px #fff;
+	}
+.leaflet-control-scale-line:not(:first-child) {
+	border-top: 2px solid #777;
+	border-bottom: none;
+	margin-top: -2px;
+	}
+.leaflet-control-scale-line:not(:first-child):not(:last-child) {
+	border-bottom: 2px solid #777;
+	}
+
+.leaflet-touch .leaflet-control-attribution,
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	box-shadow: none;
+	}
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	border: 2px solid rgba(0,0,0,0.2);
+	background-clip: padding-box;
+	}
+
+
+/* popup */
+
+.leaflet-popup {
+	position: absolute;
+	text-align: center;
+	margin-bottom: 20px;
+	}
+.leaflet-popup-content-wrapper {
+	padding: 1px;
+	text-align: left;
+	border-radius: 12px;
+	}
+.leaflet-popup-content {
+	margin: 13px 24px 13px 20px;
+	line-height: 1.3;
+	font-size: 13px;
+	font-size: 1.08333em;
+	min-height: 1px;
+	}
+.leaflet-popup-content p {
+	margin: 17px 0;
+	margin: 1.3em 0;
+	}
+.leaflet-popup-tip-container {
+	width: 40px;
+	height: 20px;
+	position: absolute;
+	left: 50%;
+	margin-top: -1px;
+	margin-left: -20px;
+	overflow: hidden;
+	pointer-events: none;
+	}
+.leaflet-popup-tip {
+	width: 17px;
+	height: 17px;
+	padding: 1px;
+
+	margin: -10px auto 0;
+	pointer-events: auto;
+
+	-webkit-transform: rotate(45deg);
+	   -moz-transform: rotate(45deg);
+	    -ms-transform: rotate(45deg);
+	        transform: rotate(45deg);
+	}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+	background: white;
+	color: #333;
+	box-shadow: 0 3px 14px rgba(0,0,0,0.4);
+	}
+.leaflet-container a.leaflet-popup-close-button {
+	position: absolute;
+	top: 0;
+	right: 0;
+	border: none;
+	text-align: center;
+	width: 24px;
+	height: 24px;
+	font: 16px/24px Tahoma, Verdana, sans-serif;
+	color: #757575;
+	text-decoration: none;
+	background: transparent;
+	}
+.leaflet-container a.leaflet-popup-close-button:hover,
+.leaflet-container a.leaflet-popup-close-button:focus {
+	color: #585858;
+	}
+.leaflet-popup-scrolled {
+	overflow: auto;
+	}
+
+.leaflet-oldie .leaflet-popup-content-wrapper {
+	-ms-zoom: 1;
+	}
+.leaflet-oldie .leaflet-popup-tip {
+	width: 24px;
+	margin: 0 auto;
+
+	-ms-filter: "progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678)";
+	filter: progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678);
+	}
+
+.leaflet-oldie .leaflet-control-zoom,
+.leaflet-oldie .leaflet-control-layers,
+.leaflet-oldie .leaflet-popup-content-wrapper,
+.leaflet-oldie .leaflet-popup-tip {
+	border: 1px solid #999;
+	}
+
+
+/* div icon */
+
+.leaflet-div-icon {
+	background: #fff;
+	border: 1px solid #666;
+	}
+
+
+/* Tooltip */
+/* Base styles for the element that has a tooltip */
+.leaflet-tooltip {
+	position: absolute;
+	padding: 6px;
+	background-color: #fff;
+	border: 1px solid #fff;
+	border-radius: 3px;
+	color: #222;
+	white-space: nowrap;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	pointer-events: none;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+	}
+.leaflet-tooltip.leaflet-interactive {
+	cursor: pointer;
+	pointer-events: auto;
+	}
+.leaflet-tooltip-top:before,
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	position: absolute;
+	pointer-events: none;
+	border: 6px solid transparent;
+	background: transparent;
+	content: "";
+	}
+
+/* Directions */
+
+.leaflet-tooltip-bottom {
+	margin-top: 6px;
+}
+.leaflet-tooltip-top {
+	margin-top: -6px;
+}
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-top:before {
+	left: 50%;
+	margin-left: -6px;
+	}
+.leaflet-tooltip-top:before {
+	bottom: 0;
+	margin-bottom: -12px;
+	border-top-color: #fff;
+	}
+.leaflet-tooltip-bottom:before {
+	top: 0;
+	margin-top: -12px;
+	margin-left: -6px;
+	border-bottom-color: #fff;
+	}
+.leaflet-tooltip-left {
+	margin-left: -6px;
+}
+.leaflet-tooltip-right {
+	margin-left: 6px;
+}
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	top: 50%;
+	margin-top: -6px;
+	}
+.leaflet-tooltip-left:before {
+	right: 0;
+	margin-right: -12px;
+	border-left-color: #fff;
+	}
+.leaflet-tooltip-right:before {
+	left: 0;
+	margin-left: -12px;
+	border-right-color: #fff;
+	}
+
+/* Printing */
+
+@media print {
+	/* Prevent printers from removing background-images of controls. */
+	.leaflet-control {
+		-webkit-print-color-adjust: exact;
+		print-color-adjust: exact;
+		}
+	}
+
+
+/* ====================== base ====================== */
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-ui);
+  overscroll-behavior:none;
+}
+button{font-family:inherit;}
+h1,h2,h3{text-wrap:balance;}
+.tnum{font-variant-numeric:tabular-nums;}
+
+#app{display:flex;flex-direction:column;height:100%;}
+
+/* ====================== topbar ====================== */
+.topbar{
+  flex:0 0 auto;
+  display:flex;align-items:center;gap:10px;
+  padding:calc(env(safe-area-inset-top,0px) + 10px) 14px 10px;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  position:relative; z-index:20;
+}
+.brand{display:flex;align-items:baseline;gap:6px;flex:0 0 auto;}
+.brand-mark{
+  font-family:var(--font-hud);font-weight:800;font-size:15px;letter-spacing:.04em;
+  color:var(--accent-ink);background:var(--accent);
+  padding:3px 7px;border-radius:6px;line-height:1;
+}
+.brand-name{font-weight:700;font-size:14.5px;white-space:nowrap;}
+.hall-switch{
+  display:flex;gap:2px;background:var(--surface-2);border-radius:999px;padding:3px;
+  flex:1 1 auto;min-width:0;
+}
+.hall-tab{
+  flex:1 1 0;border:0;background:transparent;color:var(--text-muted);
+  font-weight:700;font-size:12.5px;padding:8px 6px;border-radius:999px;cursor:pointer;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.hall-tab.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm);}
+.topbar-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto;}
+.calib-chip{
+  border:0;border-radius:999px;padding:7px 10px;font-size:11.5px;font-weight:700;
+  cursor:pointer;white-space:nowrap;
+}
+.calib-chip.good{background:var(--good-bg);color:var(--good);}
+.calib-chip.warn{background:var(--warn-bg);color:var(--warn);}
+.icon-btn{
+  width:32px;height:32px;border-radius:50%;border:1px solid var(--border);
+  background:var(--surface);color:var(--text);font-weight:800;font-size:14px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;
+}
+
+/* ====================== map stage ====================== */
+.mapstage{position:relative;flex:1 1 auto;min-height:0;background:var(--surface-2);}
+.leaflet-map{position:absolute;inset:0;background:var(--surface-2);}
+.leaflet-map.hidden{display:none;}
+.leaflet-container{font-family:var(--font-ui);background:var(--surface-2);}
+.leaflet-control-zoom{border:none !important;box-shadow:var(--shadow-sm) !important;}
+.leaflet-control-zoom a{
+  background:var(--surface) !important;color:var(--text) !important;border-color:var(--border) !important;
+}
+.leaflet-bar a{border-bottom-color:var(--border) !important;}
+
+.no-cal-banner{
+  position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  background:var(--warn-bg);color:var(--warn);border-radius:999px;
+  padding:8px 14px;font-size:12px;font-weight:700;box-shadow:var(--shadow-sm);
+  z-index:15;display:flex;gap:8px;align-items:center;cursor:pointer;max-width:88%;
+}
+.db-banner{
+  position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  background:var(--surface);color:var(--text-muted);border:1px solid var(--border);border-radius:999px;
+  padding:7px 13px;font-size:11.5px;font-weight:600;box-shadow:var(--shadow-sm);
+  z-index:15;max-width:88%;text-align:center;
+}
+
+.mode-hint{
+  position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  background:var(--accent);color:var(--accent-ink);border-radius:999px;
+  padding:9px 16px;font-size:12.5px;font-weight:700;box-shadow:var(--shadow-sm);
+  z-index:16;max-width:88%;text-align:center;
+}
+.mode-hint.hidden{display:none;}
+.mode-hint button{
+  margin-left:8px;border:0;background:rgba(0,0,0,.15);color:inherit;border-radius:999px;
+  width:20px;height:20px;font-weight:800;cursor:pointer;
+}
+
+.fab-stack{
+  position:absolute;right:12px;bottom:14px;z-index:15;
+  display:flex;flex-direction:column;gap:10px;
+  transition:transform .18s ease;
+}
+.fab-stack.raised{transform:translateY(-172px);}
+.fab{
+  width:48px;height:48px;border-radius:50%;border:1px solid var(--border);
+  background:var(--surface);color:var(--text);font-size:19px;font-weight:700;
+  box-shadow:var(--shadow-sm);cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+.fab.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);}
+
+/* ====================== nav card ====================== */
+.nav-card{
+  position:absolute;left:0;right:0;bottom:0;z-index:14;
+  background:var(--surface);border-top:1px solid var(--border);
+  border-radius:var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow:0 -6px 24px rgba(0,0,0,.12);
+  padding:14px 16px calc(env(safe-area-inset-bottom,0px) + 14px);
+}
+.nav-card.hidden{display:none;}
+.nav-top{display:flex;align-items:center;gap:10px;}
+.nav-dest-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);flex:0 0 auto;}
+.nav-dest-name{font-weight:800;font-size:15px;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.nav-clear{
+  border:0;background:var(--surface-2);color:var(--text-muted);border-radius:999px;
+  width:26px;height:26px;font-weight:800;cursor:pointer;flex:0 0 auto;
+}
+.nav-body{display:flex;align-items:center;gap:16px;margin-top:10px;}
+.nav-compass{
+  width:56px;height:56px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);
+  flex:0 0 auto;position:relative;display:flex;align-items:center;justify-content:center;
+}
+.nav-compass .arrow{
+  font-family:var(--font-hud);font-size:26px;line-height:1;color:var(--accent);
+  transform:rotate(0deg);transition:transform .25s ease;
+}
+.nav-compass .arrow.dim{color:var(--text-muted);}
+.nav-metrics{flex:1 1 auto;min-width:0;}
+.nav-distance{font-family:var(--font-hud);font-weight:700;font-size:34px;line-height:1;}
+.nav-distance small{font-size:16px;font-weight:600;margin-left:3px;color:var(--text-muted);}
+.nav-sub{font-size:12px;color:var(--text-muted);margin-top:3px;}
+.nav-uncal{font-size:12.5px;color:var(--warn);font-weight:700;}
+.nav-self-row{display:flex;gap:8px;margin-top:12px;}
+.chip-btn{
+  border:1px solid var(--border);background:var(--surface-2);color:var(--text);
+  border-radius:999px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;gap:6px;
+}
+.chip-btn.on{background:var(--self-soft);color:var(--self);border-color:var(--self);}
+
+/* ====================== modals ====================== */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(10,12,9,.44);z-index:60;
+  display:flex;align-items:flex-end;justify-content:center;
+}
+@media (min-width:640px){ .modal-overlay{align-items:center;} }
+.modal-overlay.hidden{display:none;}
+.modal-sheet{
+  background:var(--surface);width:100%;max-width:460px;max-height:88vh;overflow-y:auto;
+  border-radius:var(--radius-lg) var(--radius-lg) 0 0;
+  padding:18px 20px calc(env(safe-area-inset-bottom,0px) + 20px);
+  box-shadow:var(--shadow);
+}
+@media (min-width:640px){ .modal-sheet{border-radius:var(--radius-lg);margin:20px;} }
+.modal-title{font-size:17px;font-weight:800;margin:0 0 4px;}
+.modal-desc{font-size:13px;color:var(--text-muted);line-height:1.6;margin:0 0 14px;}
+.field-label{font-size:12px;font-weight:700;color:var(--text-muted);margin:14px 0 6px;display:block;}
+.field-input{
+  width:100%;border:1px solid var(--border);background:var(--bg);color:var(--text);
+  border-radius:var(--radius-sm);padding:11px 12px;font-size:14.5px;font-family:inherit;
+}
+.field-row{display:flex;gap:10px;}
+.field-row>*{flex:1 1 0;}
+.btn{
+  border:0;border-radius:999px;padding:12px 18px;font-weight:800;font-size:14px;cursor:pointer;
+  width:100%;margin-top:14px;
+}
+.btn-primary{background:var(--accent);color:var(--accent-ink);}
+.btn-ghost{background:var(--surface-2);color:var(--text);}
+.btn-danger{background:transparent;color:var(--danger);border:1px solid var(--danger);}
+.btn-row{display:flex;gap:10px;}
+.btn-row .btn{margin-top:14px;}
+.modal-close{
+  position:sticky;top:0;float:right;border:0;background:var(--surface-2);color:var(--text-muted);
+  width:28px;height:28px;border-radius:50%;font-weight:800;cursor:pointer;margin-left:10px;
+}
+
+.calib-step{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--border);}
+.calib-step:first-of-type{border-top:0;}
+.calib-step-badge{
+  width:26px;height:26px;border-radius:50%;background:var(--surface-2);color:var(--text-muted);
+  font-weight:800;font-size:12.5px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;
+}
+.calib-step-badge.done{background:var(--good-bg);color:var(--good);}
+.calib-step-badge.active{background:var(--accent);color:var(--accent-ink);}
+.calib-step-body{flex:1 1 auto;min-width:0;}
+.calib-step-title{font-weight:700;font-size:13.5px;}
+.calib-step-sub{font-size:12px;color:var(--text-muted);margin-top:2px;line-height:1.5;}
+.calib-method-tabs{display:flex;gap:6px;margin-top:8px;}
+.calib-method-tab{
+  flex:1 1 0;border:1px solid var(--border);background:var(--surface-2);color:var(--text-muted);
+  border-radius:999px;padding:7px 8px;font-size:11.5px;font-weight:700;cursor:pointer;
+}
+.calib-method-tab.active{background:var(--self-soft);color:var(--self);border-color:var(--self);}
+
+.pin-search{
+  width:100%;border:1px solid var(--border);background:var(--bg);color:var(--text);
+  border-radius:var(--radius-sm);padding:11px 12px;font-size:14px;margin-bottom:10px;
+}
+.pin-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
+.pin-item{
+  display:flex;align-items:center;gap:10px;padding:10px 10px;border-radius:var(--radius-sm);
+  background:var(--surface-2);cursor:pointer;
+}
+.pin-item-dot{width:9px;height:9px;border-radius:50%;background:var(--accent);flex:0 0 auto;}
+.pin-item-label{flex:1 1 auto;min-width:0;font-weight:700;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pin-item-meta{font-size:11px;color:var(--text-muted);flex:0 0 auto;}
+.pin-item-del{
+  border:0;background:transparent;color:var(--text-muted);font-size:16px;cursor:pointer;
+  flex:0 0 auto;padding:4px 6px;
+}
+.pin-empty{text-align:center;color:var(--text-muted);font-size:13px;padding:28px 10px;}
+
+.help-section{margin-top:14px;}
+.help-section h4{font-size:13.5px;margin:0 0 6px;}
+.help-section p{font-size:13px;color:var(--text-muted);line-height:1.7;margin:0;}
+.help-section ul{margin:6px 0 0;padding-left:18px;font-size:13px;color:var(--text-muted);line-height:1.7;}
+
+.toast{
+  position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:80;
+  background:var(--text);color:var(--bg);padding:10px 18px;border-radius:999px;
+  font-size:13px;font-weight:700;box-shadow:var(--shadow);
+}
+.toast.hidden{display:none;}
+
+/* leaflet custom markers */
+.pin-hit{width:30px;height:30px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:4px;}
+.pin-marker{
+  width:14px;height:14px;border-radius:50% 50% 50% 0;background:var(--surface-3);
+  border:2px solid var(--surface);box-shadow:var(--shadow-sm);transform:rotate(-45deg);
+}
+.pin-marker.dest{background:var(--accent);border-color:var(--accent-ink);width:18px;height:18px;}
+.pin-tooltip{
+  font-family:var(--font-ui);font-weight:700;font-size:11.5px;
+  background:var(--surface) !important;color:var(--text) !important;
+  border:1px solid var(--border) !important;box-shadow:var(--shadow-sm);
+  padding:3px 7px !important;
+}
+.pin-tooltip::before{display:none !important;}
+.self-marker-wrap{width:22px;height:22px;display:flex;align-items:center;justify-content:center;}
+.self-marker-dot{
+  width:16px;height:16px;border-radius:50%;background:var(--self);border:3px solid var(--surface);
+  box-shadow:0 0 0 3px rgba(47,111,224,.35);
+}
+.self-marker-dot.manual{background:var(--text-muted);box-shadow:0 0 0 3px rgba(0,0,0,.12);}
+.calib-marker{
+  width:22px;height:22px;border-radius:50%;background:var(--self);color:#fff;border:2px solid var(--surface);
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;box-shadow:var(--shadow-sm);
+}
+.nav-arrow-marker{
+  font-family:var(--font-hud);font-size:20px;color:var(--accent);
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));
+}
+
+@media (prefers-reduced-motion:reduce){
+  *{transition:none !important;animation:none !important;}
+}
+</style>
+</head>
+<body>
+
+
+<div id="app">
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">TGS</span><span class="brand-name">会場内ナビ</span></div>
+    <div class="hall-switch" role="tablist">
+      <button class="hall-tab active" data-map="hall1-8" type="button">ホール1-8</button>
+      <button class="hall-tab" data-map="hall9-11" type="button">ホール9-11</button>
+    </div>
+    <div class="topbar-actions">
+      <button id="calibChip" class="calib-chip warn" type="button">⚠ 未設定</button>
+      <button id="helpBtn" class="icon-btn" type="button" aria-label="使い方">?</button>
+    </div>
+  </header>
+
+  <main class="mapstage">
+    <div id="map-hall1-8" class="leaflet-map"></div>
+    <div id="map-hall9-11" class="leaflet-map hidden"></div>
+
+    <div id="dbBanner" class="db-banner hidden">共有データベースに接続できないため、この端末だけのローカル表示です</div>
+    <div id="noCalBanner" class="no-cal-banner hidden">⚠ このホールは未キャリブレーションです。タップして設定 →</div>
+    <div id="modeHint" class="mode-hint hidden"></div>
+
+    <div class="fab-stack" id="fabStack">
+      <button id="pinListBtn" class="fab" type="button" aria-label="ピン一覧">☰</button>
+      <button id="selfPosBtn" class="fab" type="button" aria-label="自分の位置">📍</button>
+      <button id="addPinBtn" class="fab" type="button" aria-label="ピンを追加">＋</button>
+    </div>
+
+    <div id="navCard" class="nav-card hidden">
+      <div class="nav-top">
+        <span class="nav-dest-dot"></span>
+        <div class="nav-dest-name" id="navDestName">—</div>
+        <button class="nav-clear" id="navClearBtn" type="button" aria-label="解除">✕</button>
+      </div>
+      <div class="nav-body">
+        <div class="nav-compass"><span class="arrow dim" id="navArrow">▲</span></div>
+        <div class="nav-metrics">
+          <div id="navDistanceWrap">
+            <span class="nav-distance tnum" id="navDistance">--</span><small>m</small>
+          </div>
+          <div class="nav-sub" id="navSub">自分の位置を設定してください</div>
+        </div>
+      </div>
+      <div class="nav-self-row">
+        <button class="chip-btn" id="gpsModeBtn" type="button">📡 GPSで追跡</button>
+        <button class="chip-btn" id="manualModeBtn" type="button">✋ 手動で設定</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- 追加: ピン追加モーダル -->
+<div id="addPinModal" class="modal-overlay hidden">
+  <div class="modal-sheet">
+    <button class="modal-close" data-close="addPinModal" type="button">✕</button>
+    <h3 class="modal-title">ピンを追加</h3>
+    <p class="modal-desc">タップした場所にブース名などのピンを置きます。チーム全員の地図に反映されます。</p>
+    <label class="field-label">名前（例: ソニー・インタラクティブエンタテインメント / 06-C01）</label>
+    <input class="field-input" id="pinLabelInput" maxlength="60" placeholder="ブース名・目印の名前">
+    <label class="field-label">メモ（任意）</label>
+    <input class="field-input" id="pinNoteInput" maxlength="80" placeholder="例: 15時に待ち合わせ">
+    <button class="btn btn-primary" id="pinSaveBtn" type="button">この場所にピンを置く</button>
+    <button class="btn btn-ghost" data-close="addPinModal" type="button">キャンセル</button>
+  </div>
+</div>
+
+<!-- ピン一覧モーダル -->
+<div id="pinListModal" class="modal-overlay hidden">
+  <div class="modal-sheet">
+    <button class="modal-close" data-close="pinListModal" type="button">✕</button>
+    <h3 class="modal-title">ピン一覧</h3>
+    <input class="pin-search" id="pinSearchInput" placeholder="ブース名で検索">
+    <ul class="pin-list" id="pinListEl"></ul>
+  </div>
+</div>
+
+<!-- キャリブレーション モーダル -->
+<div id="calibModal" class="modal-overlay hidden">
+  <div class="modal-sheet">
+    <button class="modal-close" data-close="calibModal" type="button">✕</button>
+    <h3 class="modal-title" id="calibTitle">キャリブレーション</h3>
+    <p class="modal-desc">地図上の実在する目印を2つ選び、それぞれの実際のGPS座標を設定します。できるだけ離れた2点（例: 会場の両端の入口）を選ぶと精度が上がります。</p>
+    <div id="calibStepA"></div>
+    <div id="calibStepB"></div>
+    <button class="btn btn-primary hidden" id="calibSaveBtn" type="button">保存する</button>
+  </div>
+</div>
+
+<!-- キャリブレーション: 座標入力サブモーダル -->
+<div id="calibPointModal" class="modal-overlay hidden">
+  <div class="modal-sheet">
+    <button class="modal-close" data-close="calibPointModal" type="button">✕</button>
+    <h3 class="modal-title" id="calibPointTitle">ポイントの実際の位置</h3>
+    <p class="modal-desc">この場所の緯度・経度を設定してください。Googleマップでその場所を長押しすると座標が表示されます（コピーして貼り付けできます）。会場にいる場合は現在地を記録することもできます。</p>
+    <div class="calib-method-tabs">
+      <button class="calib-method-tab active" data-method="manual" type="button">座標を入力</button>
+      <button class="calib-method-tab" data-method="gps" type="button">現在地を記録</button>
+    </div>
+    <div id="calibManualFields">
+      <label class="field-label">緯度 (latitude)</label>
+      <input class="field-input" id="calibLatInput" placeholder="例: 35.647920" inputmode="decimal">
+      <label class="field-label">経度 (longitude)</label>
+      <input class="field-input" id="calibLngInput" placeholder="例: 140.032280" inputmode="decimal">
+    </div>
+    <div id="calibGpsFields" class="hidden">
+      <div class="field-label" id="calibGpsStatus">この場所に立ってから記録してください</div>
+      <button class="btn btn-ghost" id="calibGpsCaptureBtn" type="button">📍 現在地を記録する</button>
+    </div>
+    <label class="field-label">目印の名前（任意）</label>
+    <input class="field-input" id="calibPointLabelInput" placeholder="例: 正面エントランス">
+    <button class="btn btn-primary" id="calibPointSaveBtn" type="button">このポイントを設定</button>
+  </div>
+</div>
+
+<!-- ヘルプ モーダル -->
+<div id="helpModal" class="modal-overlay hidden">
+  <div class="modal-sheet">
+    <button class="modal-close" data-close="helpModal" type="button">✕</button>
+    <h3 class="modal-title">使い方</h3>
+    <div class="help-section">
+      <h4>① キャリブレーション（最初に1回）</h4>
+      <p>各ホールごとに、地図上の目印を2点選んで実際のGPS座標と結びつけます。屋内は建物の鉄骨などでGPSの精度が数十m単位でブレることがあるため、Googleマップで目印の座標を調べて入力する方法がおすすめです。一度設定すればチーム全員に反映されます。</p>
+    </div>
+    <div class="help-section">
+      <h4>② ピンを置く</h4>
+      <p>右下の「＋」から地図をタップしてブースや待ち合わせ場所にピンを置けます。チームの誰かが置いたピンは全員の地図にすぐ反映されます。</p>
+    </div>
+    <div class="help-section">
+      <h4>③ ナビする</h4>
+      <p>ピン一覧またはピンをタップして目的地に選ぶと、距離とおおよその方角が表示されます。GPSで自動追跡するか、GPSが不安定な場合は地図をタップして自分の位置を手動設定できます。屋内のため数m〜十数mの誤差が出ることがあります。あくまで目安としてご利用ください。</p>
+    </div>
+    <div class="help-section">
+      <h4>あなたの名前（任意・この端末だけに保存）</h4>
+      <input class="field-input" id="nicknameInput" placeholder="ピンの追加者として表示されます">
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getFirestore, collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+var FIREBASE_CONFIG = {
+  apiKey: "AIzaSyA_M-EjvmOdnll0-cnvLyrL9Y3J3FpB2KI",
+  authDomain: "tgs2026-35a45.firebaseapp.com",
+  projectId: "tgs2026-35a45",
+  storageBucket: "tgs2026-35a45.firebasestorage.app",
+  messagingSenderId: "550289973612",
+  appId: "1:550289973612:web:2dc279073f6ddc1de3d349",
+  measurementId: "G-T9ZDF4MKB4"
+};
+var firebaseApp = null, firestore = null;
+
+function makeFirestoreDbShim(firestore){
+  return {
+    collection: function(path){
+      return {
+        where: function(field, op, value){
+          return {
+            onSnapshot: function(next, errCb){
+              var q = query(collection(firestore, path), where(field, op, value));
+              return onSnapshot(q, function(snap){
+                next({ docs: snap.docs.map(function(d){ return {id:d.id, data:function(){ return d.data(); }}; }) });
+              }, errCb);
+            }
+          };
+        },
+        add: function(data){
+          return addDoc(collection(firestore, path), data).then(function(ref){ return {id:ref.id}; });
+        },
+        doc: function(id){
+          var ref = doc(firestore, path, id);
+          return {
+            "delete": function(){ return deleteDoc(ref); },
+            set: function(data){ return setDoc(ref, data); }
+          };
+        }
+      };
+    },
+    doc: function(fullPath){
+      var parts = fullPath.split("/");
+      var id = parts.pop();
+      var collPath = parts.join("/");
+      var ref = doc(firestore, collPath, id);
+      return {
+        set: function(data){ return setDoc(ref, data); },
+        onSnapshot: function(next, errCb){
+          return onSnapshot(ref, function(snap){
+            next({ exists: snap.exists(), data: function(){ return snap.data(); } });
+          }, errCb);
+        }
+      };
+    }
+  };
+}
+
+"use strict";
+
+/* ====================== map defs ====================== */
+var MAPS = {
+  "hall1-8": {label:"ホール1-8", file:"hall1-8.jpg", w:2400, h:1192},
+  "hall9-11": {label:"ホール9-11", file:"hall9-11.jpg", w:1384, h:2600}
+};
+var mapIds = Object.keys(MAPS);
+var currentMapId = "hall1-8";
+
+/* ====================== tiny state ====================== */
+var leafletMaps = {};       // id -> L.map
+var pinLayers = {};         // id -> L.layerGroup
+var pinsByMap = {};
+mapIds.forEach(function(id){ pinsByMap[id] = []; });
+var calibByMap = {};         // id -> {pointA,pointB,updatedBy,updatedAt} | null
+var calibTransformCache = {};
+var selectedDestByMap = {};  // id -> pin id
+var selfLayerByMap = {};     // id -> {marker, accuracyCircle}
+var lineLayerByMap = {};     // id -> L.layerGroup for line+arrow
+var selfSourceByMap = {};    // id -> 'gps' | 'manual' | null
+var manualSelfPxByMap = {};  // id -> {px,py} | null
+var gpsWatchId = null;
+var lastGpsCoords = null;    // {lat,lng,accuracy}
+
+var addPinMode = false;
+var addPinPending = null;    // {px,py}
+var calibPickMode = null;    // 'A' | 'B' | null
+var calibPending = {A:null, B:null};
+var calibPointDraftMethod = "manual";
+var calibPointDraftPx = null;
+
+var db = null;               // claude db namespace, or null
+var dbReady = false;
+var localMode = false;       // true if db capability unavailable -> in-memory only
+
+/* ====================== dom refs ====================== */
+var $ = function(id){ return document.getElementById(id); };
+var calibChipEl = $("calibChip");
+var noCalBanner = $("noCalBanner");
+var dbBanner = $("dbBanner");
+var modeHint = $("modeHint");
+var fabStack = $("fabStack");
+var navCard = $("navCard");
+var navDestName = $("navDestName");
+var navArrow = $("navArrow");
+var navDistance = $("navDistance");
+var navSub = $("navSub");
+var gpsModeBtn = $("gpsModeBtn");
+var manualModeBtn = $("manualModeBtn");
+
+/* ====================== utils ====================== */
+function toRad(d){ return d*Math.PI/180; }
+function toDeg(r){ return r*180/Math.PI; }
+var METERS_PER_DEG_LAT = 111320;
+
+function escapeHtml(s){
+  return String(s==null?"":s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+}
+function cssVar(name){
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "#dd4128";
+}
+
+function showToast(msg, ms){
+  var t = $("toast");
+  t.textContent = msg;
+  t.classList.remove("hidden");
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function(){ t.classList.add("hidden"); }, ms||2200);
+}
+
+function openModal(id){ $(id).classList.remove("hidden"); }
+function closeModal(id){ $(id).classList.add("hidden"); }
+document.addEventListener("click", function(e){
+  var closeAttr = e.target.getAttribute && e.target.getAttribute("data-close");
+  if(closeAttr){ closeModal(closeAttr); }
+  if(e.target.classList && e.target.classList.contains("modal-overlay")){
+    e.target.classList.add("hidden");
+  }
+});
+
+function haversineDistanceMeters(lat1,lng1,lat2,lng2){
+  var R=6371000;
+  var dLat=toRad(lat2-lat1), dLng=toRad(lng2-lng1);
+  var a=Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)*Math.sin(dLng/2);
+  return 2*R*Math.asin(Math.min(1,Math.sqrt(a)));
+}
+
+/* pixel(image, y-down) <-> leaflet latlng (CRS.Simple, y-up) for DISPLAY only */
+function pxToLeaflet(px, py, mapId){
+  var h = MAPS[mapId].h;
+  return L.latLng(h - py, px);
+}
+function leafletToPx(latlng, mapId){
+  var h = MAPS[mapId].h;
+  return {px: latlng.lng, py: h - latlng.lat};
+}
+
+/* calibration: derive similarity transform (scale+rotation) between
+   image-pixel space and real-world meters, from two (px,py)<->(lat,lng) points */
+function calibTransform(calib){
+  if(!calib || !calib.pointA || !calib.pointB) return null;
+  var A = calib.pointA, B = calib.pointB;
+  var refLatRad = toRad(A.lat);
+  var mPerDegLng = METERS_PER_DEG_LAT * Math.cos(refLatRad);
+  if(Math.abs(mPerDegLng) < 1e-6) return null;
+  var E_b = (B.lng - A.lng) * mPerDegLng;
+  var N_b = (B.lat - A.lat) * METERS_PER_DEG_LAT;
+  var dpx = B.px - A.px, dpy = B.py - A.py;
+  var u = dpx, v = -dpy; // map-space, "up" positive
+  var denom = u*u + v*v;
+  if(denom < 1e-6) return null;
+  var kre = (E_b*u + N_b*v)/denom;
+  var kim = (N_b*u - E_b*v)/denom;
+  var E_up = -kim, N_up = kre;
+  var mapUpBearing = (toDeg(Math.atan2(E_up, N_up)) + 360) % 360;
+  var kMag = Math.sqrt(kre*kre + kim*kim);
+  return {A:A, kre:kre, kim:kim, kMag:kMag, mapUpBearing:mapUpBearing, mPerDegLng:mPerDegLng};
+}
+
+function latLngToPxViaCalib(lat, lng, t){
+  var N = (lat - t.A.lat) * METERS_PER_DEG_LAT;
+  var E = (lng - t.A.lng) * t.mPerDegLng;
+  var kmag2 = t.kre*t.kre + t.kim*t.kim;
+  if(kmag2 < 1e-9) return null;
+  var u = (E*t.kre + N*t.kim)/kmag2;
+  var v = (N*t.kre - E*t.kim)/kmag2;
+  return {px: t.A.px + u, py: t.A.py - v};
+}
+
+var COMPASS_WORDS = ["北","北北東","北東","東北東","東","東南東","南東","南南東","南","南南西","南西","西南西","西","西北西","北西","北北西"];
+function bearingWord(b){ return COMPASS_WORDS[Math.round(((b%360)+360)%360/22.5) % 16]; }
+
+/* ====================== leaflet init ====================== */
+function initLeafletMap(mapId){
+  var def = MAPS[mapId];
+  var bounds = [[0,0],[def.h, def.w]];
+  var map = L.map("map-" + mapId, {
+    crs: L.CRS.Simple,
+    minZoom: -3,
+    maxZoom: 3,
+    zoomSnap: 0.25,
+    zoomDelta: 0.5,
+    attributionControl: false,
+    zoomControl: true
+  });
+  L.imageOverlay(def.file, bounds).addTo(map);
+  map.fitBounds(bounds, {padding:[10,10]});
+  map.setMaxBounds(L.latLngBounds(bounds).pad(0.25));
+
+  var pinLayer = L.layerGroup().addTo(map);
+  var lineLayer = L.layerGroup().addTo(map);
+  pinLayers[mapId] = pinLayer;
+  lineLayerByMap[mapId] = lineLayer;
+
+  map.on("click", function(e){ onMapClick(mapId, e); });
+
+  leafletMaps[mapId] = map;
+}
+mapIds.forEach(initLeafletMap);
+var everFit = {};
+function resettleMaps(){
+  mapIds.forEach(function(id){
+    var map = leafletMaps[id];
+    var el = document.getElementById("map-" + id);
+    if(el.offsetWidth === 0 || el.offsetHeight === 0) return; // hidden tab: skip, fit when it becomes visible
+    map.invalidateSize();
+    if(!everFit[id]){
+      map.fitBounds([[0,0],[MAPS[id].h, MAPS[id].w]], {padding:[10,10]});
+      everFit[id] = true;
+    }
+  });
+}
+setTimeout(resettleMaps, 60);
+setTimeout(resettleMaps, 350);
+window.addEventListener("load", resettleMaps);
+window.addEventListener("resize", function(){
+  if(leafletMaps[currentMapId]) leafletMaps[currentMapId].invalidateSize();
+});
+if(window.ResizeObserver){
+  var mapstageEl = document.querySelector(".mapstage");
+  var ro = new ResizeObserver(function(){ resettleMaps(); });
+  ro.observe(mapstageEl);
+}
+
+function onMapClick(mapId, e){
+  var px = leafletToPx(e.latlng, mapId);
+  if(addPinMode && mapId === currentMapId){
+    addPinPending = px;
+    $("pinLabelInput").value = "";
+    $("pinNoteInput").value = "";
+    openModal("addPinModal");
+    return;
+  }
+  if(calibPickMode && mapId === currentMapId){
+    calibPending[calibPickMode] = calibPending[calibPickMode] || {};
+    calibPending[calibPickMode].px = px.px;
+    calibPending[calibPickMode].py = px.py;
+    openCalibPointModal(calibPickMode);
+    return;
+  }
+  if(selfSourceByMap[mapId] === "manual-picking"){
+    manualSelfPxByMap[mapId] = px;
+    selfSourceByMap[mapId] = "manual";
+    stopGpsWatch();
+    renderSelf(mapId);
+    updateNavCard();
+    setModeHint(null);
+    showToast("この場所を自分の位置に設定しました");
+  }
+}
+
+/* ====================== hall tab switching ====================== */
+document.querySelectorAll(".hall-tab").forEach(function(btn){
+  btn.addEventListener("click", function(){
+    var id = btn.getAttribute("data-map");
+    if(id === currentMapId) return;
+    currentMapId = id;
+    document.querySelectorAll(".hall-tab").forEach(function(b){ b.classList.toggle("active", b===btn); });
+    mapIds.forEach(function(mid){
+      $("map-" + mid).classList.toggle("hidden", mid !== id);
+    });
+    exitAddPinMode();
+    exitCalibPickMode();
+    setModeHint(null);
+    setTimeout(resettleMaps, 30);
+    refreshCalibUi();
+    updateNavCard();
+  });
+});
+
+/* ====================== pin markers ====================== */
+function makePinIcon(isDest){
+  return L.divIcon({
+    className: "",
+    html: '<div class="pin-hit"><div class="pin-marker' + (isDest?" dest":"") + '"></div></div>',
+    iconSize: [30,30],
+    iconAnchor: [15,26]
+  });
+}
+
+function renderPins(mapId){
+  var layer = pinLayers[mapId];
+  layer.clearLayers();
+  var pins = pinsByMap[mapId] || [];
+  var destId = selectedDestByMap[mapId];
+  pins.forEach(function(pin){
+    var isDest = pin.id === destId;
+    var marker = L.marker(pxToLeaflet(pin.px, pin.py, mapId), {icon: makePinIcon(isDest)});
+    marker.bindTooltip(escapeHtml(pin.label), {permanent:true, direction:"right", offset:[6,-4], className:"pin-tooltip"});
+    marker.on("click", function(e){ L.DomEvent.stopPropagation(e); openPinActions(mapId, pin); });
+    marker.addTo(layer);
+  });
+}
+
+function openPinActions(mapId, pin){
+  var goHere = confirm(pin.label + (pin.note? ("\n" + pin.note) : "") + "\n\nこの場所をナビ先に設定しますか？\n(キャンセルで削除メニュー)");
+  if(goHere){
+    setDestination(mapId, pin.id);
+  } else {
+    if(confirm('「' + pin.label + '」を削除しますか？')){
+      deletePin(mapId, pin);
+    }
+  }
+}
+
+function setDestination(mapId, pinId){
+  selectedDestByMap[mapId] = pinId;
+  renderPins(mapId);
+  updateNavCard();
+  closeModal("pinListModal");
+  var pin = (pinsByMap[mapId]||[]).find(function(p){return p.id===pinId;});
+  if(pin){
+    var map = leafletMaps[mapId];
+    var selfPx = getSelfPx(mapId);
+    if(selfPx){
+      var b = L.latLngBounds([pxToLeaflet(pin.px,pin.py,mapId), pxToLeaflet(selfPx.px, selfPx.py, mapId)]);
+      map.fitBounds(b, {padding:[60,60], maxZoom: 2});
+    } else {
+      map.panTo(pxToLeaflet(pin.px, pin.py, mapId));
+    }
+  }
+}
+
+/* ====================== db layer (with local fallback) ====================== */
+function pinPathFor(mapId){ return "pins_" + mapId; }
+
+function initDb(){
+  try{
+    firebaseApp = initializeApp(FIREBASE_CONFIG);
+    firestore = getFirestore(firebaseApp);
+    db = makeFirestoreDbShim(firestore);
+    localMode = false;
+    finishDbInit();
+    subscribePins();
+    subscribeCalibration();
+  }catch(e){
+    console.warn("Firebase init failed, falling back to local-only mode", e);
+    localMode = true;
+    finishDbInit();
+  }
+}
+
+function finishDbInit(){
+  dbReady = true;
+  if(localMode){
+    dbBanner.classList.remove("hidden");
+    mapIds.forEach(function(id){ if(!pinsByMap[id]) pinsByMap[id]=[]; renderPins(id); });
+    refreshCalibUi();
+  }
+}
+
+var localIdCounter = 1;
+
+function subscribePins(){
+  mapIds.forEach(function(mapId){
+    db.collection("pins").where("mapId","==",mapId).onSnapshot(function(snap){
+      var list = [];
+      snap.docs.forEach(function(d){
+        var data = d.data();
+        list.push({id:d.id, mapId:data.mapId, px:data.px, py:data.py, label:data.label, note:data.note||"", createdBy:data.createdBy||"", createdAt:data.createdAt||""});
+      });
+      pinsByMap[mapId] = list;
+      renderPins(mapId);
+      if(mapId === currentMapId && !$("pinListModal").classList.contains("hidden")){
+        renderPinList();
+      }
+      updateNavCard();
+    }, function(err){
+      console.warn("pins onSnapshot error", err);
+    });
+  });
+}
+
+function subscribeCalibration(){
+  mapIds.forEach(function(mapId){
+    db.doc("calibration/" + mapId).onSnapshot(function(snap){
+      calibByMap[mapId] = snap.exists ? snap.data() : null;
+      calibTransformCache[mapId] = calibTransform(calibByMap[mapId]);
+      refreshCalibUi();
+      renderSelf(mapId);
+      updateNavCard();
+    }, function(err){ console.warn("calib onSnapshot error", err); });
+  });
+}
+
+function addPin(mapId, px, py, label, note){
+  var nickname = (localStorage.getItem("tgsnav_nickname")||"").trim();
+  var doc = {mapId:mapId, px:px, py:py, label:label, note:note||"", createdBy:nickname||"匿名", createdAt:new Date().toISOString()};
+  if(localMode){
+    doc.id = "local" + (localIdCounter++);
+    pinsByMap[mapId] = pinsByMap[mapId] || [];
+    pinsByMap[mapId].push(doc);
+    renderPins(mapId);
+    updateNavCard();
+    return Promise.resolve();
+  }
+  return db.collection("pins").add(doc).catch(function(err){
+    showToast("保存に失敗しました");
+    console.warn(err);
+  });
+}
+
+function deletePin(mapId, pin){
+  if(selectedDestByMap[mapId] === pin.id){ delete selectedDestByMap[mapId]; }
+  if(localMode){
+    pinsByMap[mapId] = (pinsByMap[mapId]||[]).filter(function(p){return p.id!==pin.id;});
+    renderPins(mapId); updateNavCard();
+    return;
+  }
+  db.collection("pins").doc(pin.id).delete().then(function(){
+    renderPinList();
+  }).catch(function(){ showToast("削除に失敗しました"); });
+}
+
+function saveCalibration(mapId, pointA, pointB){
+  var nickname = (localStorage.getItem("tgsnav_nickname")||"").trim();
+  var doc = {pointA:pointA, pointB:pointB, updatedBy:nickname||"匿名", updatedAt:new Date().toISOString()};
+  if(localMode){
+    calibByMap[mapId] = doc;
+    calibTransformCache[mapId] = calibTransform(doc);
+    refreshCalibUi(); renderSelf(mapId); updateNavCard();
+    return Promise.resolve();
+  }
+  return db.doc("calibration/" + mapId).set(doc).catch(function(err){
+    showToast("保存に失敗しました"); console.warn(err);
+  });
+}
+
+initDb();
+
+/* ====================== add pin flow ====================== */
+var addPinBtn = $("addPinBtn");
+addPinBtn.addEventListener("click", function(){
+  if(addPinMode){ exitAddPinMode(); return; }
+  exitCalibPickMode();
+  addPinMode = true;
+  addPinBtn.classList.add("on");
+  setModeHint("地図をタップしてピンを置く場所を選んでください", exitAddPinMode);
+});
+function exitAddPinMode(){
+  addPinMode = false;
+  addPinBtn.classList.remove("on");
+  if(modeHint._owner === exitAddPinMode) setModeHint(null);
+}
+
+$("pinSaveBtn").addEventListener("click", function(){
+  var label = $("pinLabelInput").value.trim();
+  if(!label){ showToast("名前を入力してください"); return; }
+  var note = $("pinNoteInput").value.trim();
+  addPin(currentMapId, addPinPending.px, addPinPending.py, label, note).then(function(){
+    closeModal("addPinModal");
+    exitAddPinMode();
+    showToast("ピンを追加しました");
+  });
+});
+
+/* ====================== pin list ====================== */
+$("pinListBtn").addEventListener("click", function(){
+  renderPinList();
+  openModal("pinListModal");
+});
+$("pinSearchInput").addEventListener("input", renderPinList);
+
+function renderPinList(){
+  var q = ($("pinSearchInput").value||"").toLowerCase();
+  var pins = (pinsByMap[currentMapId]||[]).filter(function(p){
+    return !q || p.label.toLowerCase().indexOf(q) !== -1;
+  });
+  var ul = $("pinListEl");
+  ul.innerHTML = "";
+  if(pins.length === 0){
+    ul.innerHTML = '<div class="pin-empty">まだピンがありません。右下の「＋」から地図をタップして追加できます。</div>';
+    return;
+  }
+  pins.forEach(function(pin){
+    var li = document.createElement("li");
+    li.className = "pin-item";
+    var dot = document.createElement("span"); dot.className = "pin-item-dot";
+    var label = document.createElement("span"); label.className = "pin-item-label"; label.textContent = pin.label;
+    var meta = document.createElement("span"); meta.className = "pin-item-meta"; meta.textContent = pin.createdBy||"";
+    var del = document.createElement("button"); del.className = "pin-item-del"; del.textContent = "🗑"; del.type="button";
+    del.addEventListener("click", function(ev){
+      ev.stopPropagation();
+      if(confirm('「'+pin.label+'」を削除しますか？')) deletePin(currentMapId, pin);
+    });
+    li.appendChild(dot); li.appendChild(label); li.appendChild(meta); li.appendChild(del);
+    li.addEventListener("click", function(){ setDestination(currentMapId, pin.id); });
+    ul.appendChild(li);
+  });
+}
+
+/* ====================== calibration ui ====================== */
+function refreshCalibUi(){
+  var calib = calibByMap[currentMapId];
+  var ok = !!calibTransformCache[currentMapId];
+  calibChipEl.textContent = ok ? "✅ 設定済み" : "⚠ 未設定";
+  calibChipEl.className = "calib-chip " + (ok ? "good" : "warn");
+  noCalBanner.classList.toggle("hidden", ok);
+}
+calibChipEl.addEventListener("click", openCalibModal);
+noCalBanner.addEventListener("click", openCalibModal);
+
+function openCalibModal(){
+  exitAddPinMode();
+  calibPickMode = null;
+  calibPending = {A: Object.assign({}, (calibByMap[currentMapId]||{}).pointA || null), B: Object.assign({}, (calibByMap[currentMapId]||{}).pointB || null)};
+  if(!calibPending.A || calibPending.A.px===undefined) calibPending.A = null;
+  if(!calibPending.B || calibPending.B.px===undefined) calibPending.B = null;
+  $("calibTitle").textContent = "キャリブレーション：" + MAPS[currentMapId].label;
+  renderCalibSteps();
+  openModal("calibModal");
+}
+
+function renderCalibSteps(){
+  function stepHtml(key, index){
+    var p = calibPending[key];
+    var done = p && p.lat!==undefined && p.lat!==null;
+    var picked = p && p.px!==undefined;
+    var state = done ? "done" : (calibPickMode===key ? "active" : "");
+    var sub = done ? ("設定済み: " + p.lat.toFixed(6) + ", " + p.lng.toFixed(6) + (p.label? (" ("+escapeHtml(p.label)+")"):"")) :
+              picked ? "地図上の位置は選択済み。実際の座標を入力してください。" :
+              "「地図で選ぶ」を押して、地図上の目印をタップしてください。";
+    return '<div class="calib-step">' +
+      '<div class="calib-step-badge ' + state + '">' + (done? "✓" : index) + '</div>' +
+      '<div class="calib-step-body">' +
+      '<div class="calib-step-title">ポイント' + key + '</div>' +
+      '<div class="calib-step-sub">' + sub + '</div>' +
+      '<button class="btn btn-ghost" style="margin-top:8px" type="button" data-pick="' + key + '">' + (picked||done? "地図で選び直す" : "地図で選ぶ") + '</button>' +
+      (picked && !done ? '<button class="btn btn-primary" style="margin-top:8px" type="button" data-openpoint="'+key+'">座標を設定する</button>' : '') +
+      '</div></div>';
+  }
+  $("calibStepA").innerHTML = stepHtml("A", 1);
+  $("calibStepB").innerHTML = stepHtml("B", 2);
+  document.querySelectorAll("[data-pick]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var key = btn.getAttribute("data-pick");
+      closeModal("calibModal");
+      calibPickMode = key;
+      setModeHint("地図をタップしてポイント" + key + "の場所を選んでください", exitCalibPickMode);
+    });
+  });
+  document.querySelectorAll("[data-openpoint]").forEach(function(btn){
+    btn.addEventListener("click", function(){ openCalibPointModal(btn.getAttribute("data-openpoint")); });
+  });
+  var bothDone = calibPending.A && calibPending.A.lat!==undefined && calibPending.B && calibPending.B.lat!==undefined;
+  $("calibSaveBtn").classList.toggle("hidden", !bothDone);
+}
+
+function exitCalibPickMode(){
+  if(calibPickMode){
+    calibPickMode = null;
+    setModeHint(null);
+  }
+}
+
+function openCalibPointModal(key){
+  calibPointDraftMethod = "manual";
+  calibPointDraftPx = {px: calibPending[key].px, py: calibPending[key].py};
+  $("calibPointTitle").textContent = "ポイント" + key + "の実際の位置";
+  $("calibLatInput").value = calibPending[key] && calibPending[key].lat!==undefined ? calibPending[key].lat : "";
+  $("calibLngInput").value = calibPending[key] && calibPending[key].lng!==undefined ? calibPending[key].lng : "";
+  $("calibPointLabelInput").value = calibPending[key] && calibPending[key].label ? calibPending[key].label : "";
+  document.querySelectorAll(".calib-method-tab").forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-method")==="manual"); });
+  $("calibManualFields").classList.remove("hidden");
+  $("calibGpsFields").classList.add("hidden");
+  $("calibGpsStatus").textContent = "この場所に立ってから記録してください";
+  $("calibPointSaveBtn").setAttribute("data-key", key);
+  openModal("calibPointModal");
+  calibPickMode = null;
+  setModeHint(null);
+}
+
+document.querySelectorAll(".calib-method-tab").forEach(function(btn){
+  btn.addEventListener("click", function(){
+    var m = btn.getAttribute("data-method");
+    calibPointDraftMethod = m;
+    document.querySelectorAll(".calib-method-tab").forEach(function(b){ b.classList.toggle("active", b===btn); });
+    $("calibManualFields").classList.toggle("hidden", m!=="manual");
+    $("calibGpsFields").classList.toggle("hidden", m!=="gps");
+  });
+});
+
+$("calibGpsCaptureBtn").addEventListener("click", function(){
+  if(!navigator.geolocation){ showToast("この端末は位置情報に対応していません"); return; }
+  $("calibGpsStatus").textContent = "取得中…";
+  navigator.geolocation.getCurrentPosition(function(pos){
+    $("calibLatInput").value = pos.coords.latitude.toFixed(7);
+    $("calibLngInput").value = pos.coords.longitude.toFixed(7);
+    $("calibGpsStatus").textContent = "取得しました（精度 約" + Math.round(pos.coords.accuracy) + "m）。下の「このポイントを設定」を押してください。";
+    calibPointDraftMethod = "manual"; // values now populate manual fields for consistent save path
+    document.querySelectorAll(".calib-method-tab").forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-method")==="manual"); });
+    $("calibManualFields").classList.remove("hidden");
+    $("calibGpsFields").classList.add("hidden");
+  }, function(err){
+    $("calibGpsStatus").textContent = "取得できませんでした（" + (err.message||"エラー") + "）";
+  }, {enableHighAccuracy:true, timeout:15000, maximumAge:0});
+});
+
+$("calibPointSaveBtn").addEventListener("click", function(){
+  var key = $("calibPointSaveBtn").getAttribute("data-key");
+  var lat = parseFloat($("calibLatInput").value);
+  var lng = parseFloat($("calibLngInput").value);
+  if(isNaN(lat) || isNaN(lng)){ showToast("緯度・経度を入力してください"); return; }
+  calibPending[key] = {px: calibPointDraftPx.px, py: calibPointDraftPx.py, lat: lat, lng: lng, label: $("calibPointLabelInput").value.trim()};
+  closeModal("calibPointModal");
+  openModal("calibModal");
+  renderCalibSteps();
+});
+
+$("calibSaveBtn").addEventListener("click", function(){
+  var A = calibPending.A, B = calibPending.B;
+  var d = haversineDistanceMeters(A.lat, A.lng, B.lat, B.lng);
+  var proceed = true;
+  if(d < 8){
+    proceed = confirm("2つのポイントが近すぎる可能性があります（約" + d.toFixed(1) + "m）。精度が低くなることがあります。このまま保存しますか？");
+  }
+  if(!proceed) return;
+  saveCalibration(currentMapId, A, B).then(function(){
+    closeModal("calibModal");
+    showToast("キャリブレーションを保存しました");
+  });
+});
+
+/* ====================== self position (gps / manual) ====================== */
+function getSelfPx(mapId){
+  var src = selfSourceByMap[mapId];
+  if(src === "manual") return manualSelfPxByMap[mapId] || null;
+  if(src === "gps" && lastGpsCoords){
+    var t = calibTransformCache[mapId];
+    if(!t) return null;
+    return latLngToPxViaCalib(lastGpsCoords.lat, lastGpsCoords.lng, t);
+  }
+  return null;
+}
+
+gpsModeBtn.addEventListener("click", function(){
+  if(!calibTransformCache[currentMapId]){
+    showToast("先にキャリブレーションしてください");
+    openCalibModal();
+    return;
+  }
+  if(selfSourceByMap[currentMapId] === "gps"){
+    stopGpsWatch();
+    selfSourceByMap[currentMapId] = null;
+    renderSelf(currentMapId); updateNavCard();
+    return;
+  }
+  manualSelfPxByMap[currentMapId] = null;
+  selfSourceByMap[currentMapId] = "gps";
+  startGpsWatch();
+});
+
+manualModeBtn.addEventListener("click", function(){
+  if(selfSourceByMap[currentMapId] === "manual-picking"){
+    selfSourceByMap[currentMapId] = null;
+    setModeHint(null);
+    manualModeBtn.classList.remove("on");
+    return;
+  }
+  stopGpsWatch();
+  selfSourceByMap[currentMapId] = "manual-picking";
+  manualModeBtn.classList.add("on");
+  gpsModeBtn.classList.remove("on");
+  setModeHint("地図をタップして今いる場所を設定してください", function(){
+    if(selfSourceByMap[currentMapId] === "manual-picking") selfSourceByMap[currentMapId] = null;
+    manualModeBtn.classList.remove("on");
+  });
+});
+
+$("selfPosBtn").addEventListener("click", function(){
+  navCard.classList.remove("hidden");
+  fabStack.classList.add("raised");
+});
+
+function startGpsWatch(){
+  if(!navigator.geolocation){ showToast("この端末は位置情報に対応していません"); return; }
+  gpsModeBtn.classList.add("on");
+  manualModeBtn.classList.remove("on");
+  if(gpsWatchId !== null) return;
+  gpsWatchId = navigator.geolocation.watchPosition(function(pos){
+    lastGpsCoords = {lat:pos.coords.latitude, lng:pos.coords.longitude, accuracy:pos.coords.accuracy};
+    mapIds.forEach(function(id){ if(selfSourceByMap[id]==="gps"){ renderSelf(id); } });
+    updateNavCard();
+  }, function(err){
+    showToast("位置情報を取得できません: " + (err.message||""));
+    stopGpsWatch();
+    mapIds.forEach(function(id){ if(selfSourceByMap[id]==="gps") selfSourceByMap[id]=null; });
+    gpsModeBtn.classList.remove("on");
+  }, {enableHighAccuracy:true, maximumAge:4000, timeout:20000});
+}
+function stopGpsWatch(){
+  if(gpsWatchId !== null){ navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId = null; }
+  gpsModeBtn.classList.remove("on");
+}
+
+function renderSelf(mapId){
+  var map = leafletMaps[mapId];
+  if(selfLayerByMap[mapId]){
+    if(selfLayerByMap[mapId].marker) map.removeLayer(selfLayerByMap[mapId].marker);
+    if(selfLayerByMap[mapId].circle) map.removeLayer(selfLayerByMap[mapId].circle);
+  }
+  selfLayerByMap[mapId] = {};
+  var px = getSelfPx(mapId);
+  if(!px) return;
+  var isManual = selfSourceByMap[mapId] === "manual";
+  var icon = L.divIcon({className:"", html:'<div class="self-marker-wrap"><div class="self-marker-dot' + (isManual?" manual":"") + '"></div></div>', iconSize:[22,22], iconAnchor:[11,11]});
+  var marker = L.marker(pxToLeaflet(px.px, px.py, mapId), {icon:icon, zIndexOffset:500}).addTo(map);
+  selfLayerByMap[mapId].marker = marker;
+  if(!isManual && lastGpsCoords && lastGpsCoords.accuracy && calibTransformCache[mapId]){
+    var t = calibTransformCache[mapId];
+    var radiusPx = lastGpsCoords.accuracy / t.kMag;
+    var center = pxToLeaflet(px.px, px.py, mapId);
+    var circle = L.circle(center, {radius: radiusPx, color: cssVar("--self"), weight:1, fillOpacity:0.08, opacity:0.35}).addTo(map);
+    selfLayerByMap[mapId].circle = circle;
+  }
+  drawLine(mapId);
+}
+
+/* ====================== nav line + card ====================== */
+function drawLine(mapId){
+  var layer = lineLayerByMap[mapId];
+  layer.clearLayers();
+  var destId = selectedDestByMap[mapId];
+  var selfPx = getSelfPx(mapId);
+  if(!destId || !selfPx) return;
+  var pin = (pinsByMap[mapId]||[]).find(function(p){return p.id===destId;});
+  if(!pin) return;
+  var a = pxToLeaflet(selfPx.px, selfPx.py, mapId);
+  var b = pxToLeaflet(pin.px, pin.py, mapId);
+  L.polyline([a,b], {color:cssVar("--accent"), weight:3, dashArray:"2 10", opacity:0.9, lineCap:"round"}).addTo(layer);
+  var dpx = pin.px - selfPx.px, dpy = pin.py - selfPx.py;
+  var angle = (toDeg(Math.atan2(dpx, -dpy)) + 360) % 360;
+  var mid = L.latLng((a.lat+b.lat)/2, (a.lng+b.lng)/2);
+  var arrowIcon = L.divIcon({className:"", html:'<div class="nav-arrow-marker" style="transform:rotate(' + angle + 'deg)">▲</div>', iconSize:[20,20], iconAnchor:[10,10]});
+  L.marker(mid, {icon:arrowIcon, zIndexOffset:400}).addTo(layer);
+}
+
+function updateNavCard(){
+  var mapId = currentMapId;
+  var destId = selectedDestByMap[mapId];
+  var pin = destId ? (pinsByMap[mapId]||[]).find(function(p){return p.id===destId;}) : null;
+  if(!pin){
+    navCard.classList.add("hidden");
+    fabStack.classList.remove("raised");
+    return;
+  }
+  navCard.classList.remove("hidden");
+  fabStack.classList.add("raised");
+  navDestName.textContent = pin.label;
+  gpsModeBtn.classList.toggle("on", selfSourceByMap[mapId]==="gps");
+  manualModeBtn.classList.toggle("on", selfSourceByMap[mapId]==="manual" || selfSourceByMap[mapId]==="manual-picking");
+
+  var selfPx = getSelfPx(mapId);
+  drawLine(mapId);
+
+  if(!selfPx){
+    navArrow.className = "arrow dim";
+    navDistance.textContent = "--";
+    navSub.textContent = "自分の位置を設定してください（GPSまたは手動）";
+    return;
+  }
+  var dpx = pin.px - selfPx.px, dpy = pin.py - selfPx.py;
+  var angle = (toDeg(Math.atan2(dpx, -dpy)) + 360) % 360;
+  navArrow.style.transform = "rotate(" + angle + "deg)";
+  navArrow.className = "arrow";
+
+  var t = calibTransformCache[mapId];
+  if(!t){
+    navDistance.textContent = "--";
+    navSub.innerHTML = '<span class="nav-uncal">未キャリブレーション：矢印のみ参考にしてください</span>';
+    return;
+  }
+  var pixelDist = Math.sqrt(dpx*dpx + dpy*dpy);
+  var distM = t.kMag * pixelDist;
+  var trueBearing = (t.mapUpBearing + angle) % 360;
+  navDistance.textContent = distM < 10 ? distM.toFixed(1) : Math.round(distM).toString();
+  navSub.textContent = bearingWord(trueBearing) + "方向・目安の距離です";
+}
+
+/* ====================== mode hint ====================== */
+function setModeHint(text, onCancel){
+  if(!text){
+    modeHint.classList.add("hidden");
+    modeHint._owner = null;
+    refreshCalibUi();
+    if(localMode) dbBanner.classList.remove("hidden");
+    return;
+  }
+  noCalBanner.classList.add("hidden");
+  dbBanner.classList.add("hidden");
+  modeHint.innerHTML = "";
+  var span = document.createElement("span");
+  span.textContent = text;
+  var btn = document.createElement("button");
+  btn.type = "button"; btn.textContent = "✕";
+  btn.addEventListener("click", function(){
+    if(onCancel) onCancel();
+    setModeHint(null);
+  });
+  modeHint.appendChild(span);
+  modeHint.appendChild(btn);
+  modeHint.classList.remove("hidden");
+  modeHint._owner = onCancel;
+}
+
+/* ====================== help / nickname ====================== */
+$("helpBtn").addEventListener("click", function(){
+  $("nicknameInput").value = localStorage.getItem("tgsnav_nickname") || "";
+  openModal("helpModal");
+});
+$("nicknameInput").addEventListener("change", function(){
+  try{ localStorage.setItem("tgsnav_nickname", $("nicknameInput").value.trim()); }catch(e){}
+});
+
+/* ====================== initial paint ====================== */
+refreshCalibUi();
+updateNavCard();
+</script>
+</body>
+</html>
